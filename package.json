@@ -1,0 +1,27 @@
+{
+  "name": "group5-testing",
+  "version": "1.0.0",
+  "description": "Comprehensive Testing Suite for Group5 GPP Pharmacy Management System",
+  "main": "generate-report.js",
+  "scripts": {
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "start": "concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "start:backend": "npm --prefix backend run dev",
+    "start:frontend": "npm --prefix frontend run dev",
+    "test:unit": "npm --prefix backend run test",
+    "test:unit:native": "npm --prefix backend run test:native",
+    "test:api": "newman run tests/2-api-testing/postman/01_Auth.postman_collection.json -e tests/2-api-testing/postman/Group5_Local_Environment.postman_environment.json && newman run tests/2-api-testing/postman/02_Medicines.postman_collection.json -e tests/2-api-testing/postman/Group5_Local_Environment.postman_environment.json && newman run tests/2-api-testing/postman/03_Sales.postman_collection.json -e tests/2-api-testing/postman/Group5_Local_Environment.postman_environment.json && newman run tests/2-api-testing/postman/04_Imports.postman_collection.json -e tests/2-api-testing/postman/Group5_Local_Environment.postman_environment.json",
+    "test:e2e:open": "cypress open --config-file tests/3-e2e-testing/cypress.config.js",
+    "test:e2e:run": "cypress run --config-file tests/3-e2e-testing/cypress.config.js",
+    "test:load": "k6 run tests/load-test.js",
+    "report": "node generate-report.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cypress": "^13.16.0",
+    "newman": "^6.1.3"
+  }
+}

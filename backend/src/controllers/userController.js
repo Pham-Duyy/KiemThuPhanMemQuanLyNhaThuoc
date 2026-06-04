@@ -1,0 +1,177 @@
+import User from "../models/User.js";
+import { sendErrorResponse } from "../utils/errorResponse.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
+
+// @GET /api/users - Lấy danh sách người dùng (admin)
+export const getUsers = async (req, res) => {
+  try {
+    const { role, search, page = 1, limit = 20 } = req.query;
+    const filter = {};
+    if (role) filter.role = role;
+    if (search) filter.name = { $regex: search, $options: "i" };
+
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter)
+      .select("-password")
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 });
+
+    res.json({ users, total, page: Number(page), pages: Math.ceil(total / limit) });
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @GET /api/users/:id
+export const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    res.json(user);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @PUT /api/users/:id
+export const updateUser = async (req, res) => {
+  try {
+    const { name, email, phone, address, role, isActive, password, clockInPin, salaryConfig } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+
+    user.name = name ?? user.name;
+    user.email = email ?? user.email;
+    user.phone = phone ?? user.phone;
+    user.address = address ?? user.address;
+    user.role = role ?? user.role;
+    if (isActive !== undefined) user.isActive = isActive;
+
+    if (salaryConfig) {
+      user.salaryConfig = {
+        ...user.salaryConfig,
+        ...salaryConfig
+      };
+    }
+
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ message: "Mật khẩu phải từ 6 ký tự trở lên" });
+      }
+      user.password = password;
+    }
+
+    if (clockInPin !== undefined) {
+      if (clockInPin && !/^\d{6}$/.test(clockInPin)) {
+        return res.status(400).json({ message: "Mã PIN phải gồm đúng 6 ký số" });
+      }
+      user.clockInPin = clockInPin || Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    const updated = await user.save();
+
+    await createAuditLog({
+      req,
+      action: "update",
+      module: "user",
+      target: updated.name,
+      description: `Cập nhật thông tin nhân viên ${updated.name}`,
+    });
+
+    res.json({ ...updated._doc, password: undefined, message: "Cập nhật thành công" });
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @DELETE /api/users/:id - Khóa tài khoản (soft delete)
+export const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    user.isActive = false;
+    await user.save();
+
+    await createAuditLog({
+      req,
+      action: "delete",
+      module: "user",
+      target: user.name,
+      description: `Khóa tài khoản nhân viên ${user.name}`,
+    });
+
+    res.json({ message: "Tài khoản đã bị khóa" });
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @POST /api/users - Create new internal user (admin only)
+export const createUser = async (req, res) => {
+  try {
+    const { name, email, password, phone, address, role, clockInPin, salaryConfig } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Vui lòng nhập đầy đủ Tên, Email và Mật khẩu" });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: "Email này đã được sử dụng" });
+    }
+
+    let finalPin = clockInPin;
+    if (finalPin) {
+      if (!/^\d{6}$/.test(finalPin)) {
+        return res.status(400).json({ message: "Mã PIN phải gồm đúng 6 ký số" });
+      }
+    } else {
+      finalPin = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    const user = new User({
+      name,
+      email,
+      password,
+      phone,
+      address,
+      role: role || "pharmacist",
+      isActive: true,
+      clockInPin: finalPin,
+      salaryConfig: salaryConfig || {
+        type: "hourly",
+        baseRate: role === "admin" ? 50000 : 40000,
+        allowanceToxic: 0,
+        allowanceLunch: 0,
+        allowanceActive: 0
+      }
+    });
+
+    const savedUser = await user.save();
+
+    await createAuditLog({
+      req,
+      action: "create",
+      module: "user",
+      target: savedUser.name,
+      description: `Tạo tài khoản nhân viên ${savedUser.name}`,
+    });
+
+    res.status(201).json({
+      _id: savedUser._id,
+      name: savedUser.name,
+      email: savedUser.email,
+      phone: savedUser.phone,
+      address: savedUser.address,
+      role: savedUser.role,
+      isActive: savedUser.isActive,
+      clockInPin: savedUser.clockInPin,
+      message: "Tạo người dùng mới thành công"
+    });
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+

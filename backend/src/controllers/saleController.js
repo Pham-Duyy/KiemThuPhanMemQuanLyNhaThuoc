@@ -1,0 +1,403 @@
+import Sale from "../models/Sale.js";
+import { sendErrorResponse } from "../utils/errorResponse.js";
+import Medicine from "../models/Medicine.js";
+import Customer from "../models/Customer.js";
+import mongoose from "mongoose";
+import { executeTransaction } from "../utils/transaction.js";
+import { createAuditLog } from "../utils/createAuditLog.js";
+
+// Hàm tạo mã hóa đơn tự động
+const generateSaleCode = async () => {
+  const today = new Date();
+  const prefix = `HD${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+  const count = await Sale.countDocuments();
+  return `${prefix}${String(count + 1).padStart(4, "0")}`;
+};
+
+export const validateCreateSalePayload = ({ items, discount = 0 } = {}) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { message: "Hóa đơn phải có ít nhất một sản phẩm" };
+  }
+  if (!Number.isFinite(Number(discount))) return { message: "Chiết khấu hóa đơn không hợp lệ" };
+  if (Number(discount) < 0) return { message: "Chiết khấu hóa đơn không được âm" };
+
+  for (const item of items) {
+    if (!item?.medicine) return { message: "Vui lòng chọn thuốc bán" };
+    if (item.quantity === undefined || item.quantity === null || item.quantity === "") {
+      return { message: "Vui lòng nhập số lượng bán" };
+    }
+    if (!Number.isFinite(Number(item.quantity))) return { message: "Số lượng bán không hợp lệ" };
+    if (Number(item.quantity) <= 0) return { message: "Số lượng bán phải lớn hơn 0" };
+    if (!Number.isFinite(Number(item.discount || 0))) return { message: "Chiết khấu sản phẩm không hợp lệ" };
+    if (Number(item.discount || 0) < 0 || Number(item.discount || 0) > 100) {
+      return { message: "Chiết khấu sản phẩm phải từ 0 đến 100" };
+    }
+  }
+
+  return null;
+};
+
+export const buildProcessedSaleItem = (item, medicine) => {
+  const quantity = Number(item.quantity);
+  const discount = Number(item.discount || 0);
+  const unitPrice = Number(medicine.sellPrice || 0);
+
+  return {
+    medicine: medicine._id,
+    quantity,
+    unitPrice,
+    discount,
+    total: unitPrice * quantity * (1 - discount / 100),
+    dosage: item.dosage,
+  };
+};
+
+export const calculateSalePayment = ({ subTotal, discount = 0, amountPaid } = {}) => {
+  const normalizedSubTotal = Number(subTotal || 0);
+  const normalizedDiscount = Number(discount || 0);
+  const totalAmount = normalizedSubTotal - normalizedDiscount;
+
+  if (normalizedDiscount > normalizedSubTotal) {
+    return { message: "Chiết khấu hóa đơn không được lớn hơn tổng tiền hàng" };
+  }
+  if (totalAmount < 0) return { message: "Tổng tiền hóa đơn không hợp lệ" };
+
+  const normalizedAmountPaid = amountPaid === undefined || amountPaid === null || amountPaid === ""
+    ? totalAmount
+    : Number(amountPaid);
+
+  if (!Number.isFinite(normalizedAmountPaid)) return { message: "Tiền khách đưa không hợp lệ" };
+  if (normalizedAmountPaid < totalAmount) return { message: "Tiền khách đưa không đủ thanh toán" };
+
+  return {
+    totalAmount,
+    amountPaid: normalizedAmountPaid,
+    changeAmount: normalizedAmountPaid - totalAmount,
+  };
+};
+
+export const buildMedicineStockDecreaseUpdate = (item) => ({
+  $inc: { stock: -Number(item.quantity) },
+});
+
+const deductMedicineStockFEFO = async (medicineId, quantity, session = null) => {
+  const med = await Medicine.findById(medicineId);
+  if (!med) return;
+
+  med.stock = Math.max(0, med.stock - Number(quantity));
+
+  if (med.batches && med.batches.length > 0) {
+    // Sắp xếp các lô có hạn sử dụng gần nhất lên trước (FEFO)
+    med.batches.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+    let remainingToDeduct = Number(quantity);
+    for (let b of med.batches) {
+      if (remainingToDeduct <= 0) break;
+      if (b.quantity >= remainingToDeduct) {
+        b.quantity -= remainingToDeduct;
+        remainingToDeduct = 0;
+      } else {
+        remainingToDeduct -= b.quantity;
+        b.quantity = 0;
+      }
+    }
+
+    // Loại bỏ các lô đã hết hàng
+    med.batches = med.batches.filter(b => b.quantity > 0);
+
+    // Cập nhật lại hạn dùng của thuốc từ lô tiếp theo sắp hết hạn
+    if (med.batches.length > 0) {
+      med.batches.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+      med.expiryDate = med.batches[0].expiryDate;
+    }
+  }
+
+  if (session) {
+    await med.save({ session });
+  } else {
+    await med.save();
+  }
+};
+
+const returnMedicineStock = async (medicineId, quantity, session = null) => {
+  const med = await Medicine.findById(medicineId);
+  if (!med) return;
+
+  med.stock += Number(quantity);
+
+  if (med.batches && med.batches.length > 0) {
+    // Thêm số lượng trả lại vào lô có hạn sử dụng dài nhất
+    med.batches.sort((a, b) => new Date(b.expiryDate) - new Date(a.expiryDate));
+    med.batches[0].quantity += Number(quantity);
+  } else {
+    // Nếu chưa có lô nào, tạo một lô mặc định là "Hoàn trả"
+    if (!med.batches) med.batches = [];
+    med.batches.push({
+      batchNumber: "TRA-HANG",
+      expiryDate: med.expiryDate || new Date(Date.now() + 365*24*60*60*1000),
+      quantity: Number(quantity),
+      importPrice: Number(med.importPrice || 0),
+    });
+  }
+
+  if (session) {
+    await med.save({ session });
+  } else {
+    await med.save();
+  }
+};
+
+// @GET /api/sales
+export const getSales = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, startDate, endDate, customer, search } = req.query;
+    const filter = {};
+    if (customer) filter.customer = customer;
+    if (search) {
+      filter.code = { $regex: search, $options: "i" };
+    }
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    }
+
+    const total = await Sale.countDocuments(filter);
+    const sales = await Sale.find(filter)
+      .populate("customer", "name phone")
+      .populate("createdBy", "name")
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 });
+
+    res.json({ sales, total, page: Number(page), pages: Math.ceil(total / limit) });
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @GET /api/sales/:id
+export const getSaleById = async (req, res) => {
+  try {
+    const sale = await Sale.findById(req.params.id)
+      .populate("customer", "name phone address")
+      .populate("items.medicine", "name code unit")
+      .populate("prescription", "code patientName imageUrl")
+      .populate("createdBy", "name");
+    if (!sale) return res.status(404).json({ message: "Không tìm thấy hóa đơn" });
+    res.json(sale);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @POST /api/sales - Tạo hóa đơn bán hàng
+export const createSale = async (req, res) => {
+  try {
+    const { customer, prescription, items, discount = 0, paymentMethod, amountPaid, notes, pointsUsed = 0 } = req.body;
+
+    const validationError = validateCreateSalePayload({ items, discount });
+    if (validationError) {
+      return res.status(400).json(validationError);
+    }
+
+    let customerDoc = null;
+    if (customer) {
+      customerDoc = await Customer.findById(customer);
+      if (customerDoc && Number(pointsUsed) > 0) {
+        if (customerDoc.points < Number(pointsUsed)) {
+          return res.status(400).json({ message: "Khách hàng không đủ điểm tích lũy" });
+        }
+      }
+    }
+
+    // Kiểm tra tồn kho và tính tổng tiền
+    let subTotal = 0;
+    const processedItems = [];
+
+    for (const item of items) {
+      const medicine = await Medicine.findOne({ _id: item.medicine, isActive: true });
+      if (!medicine) {
+        return res.status(400).json({ message: `Thuốc không tồn tại: ${item.medicine}` });
+      }
+      if (medicine.stock < Number(item.quantity)) {
+        return res.status(400).json({
+          message: `Thuốc "${medicine.name}" không đủ tồn kho. Còn lại: ${medicine.stock}`,
+        });
+      }
+
+      const processedItem = buildProcessedSaleItem(item, medicine);
+      subTotal += processedItem.total;
+      processedItems.push(processedItem);
+    }
+
+    const payment = calculateSalePayment({ subTotal, discount, amountPaid });
+    if (payment.message) {
+      return res.status(400).json(payment);
+    }
+
+    // Xử lý giảm giá từ điểm (1 điểm = 1000 VNĐ)
+    const pointsDiscount = Number(pointsUsed || 0) * 1000;
+    const finalTotalAmount = Math.max(0, payment.totalAmount - pointsDiscount);
+    
+    // Tính lại tiền thừa
+    const finalChangeAmount = paymentMethod === 'cash' ? Math.max(0, payment.amountPaid - finalTotalAmount) : 0;
+
+    const code = await generateSaleCode();
+
+    const salePayload = {
+      code,
+      customer,
+      prescription,
+      items: processedItems,
+      subTotal,
+      discount: Number(discount || 0) + pointsDiscount,
+      totalAmount: finalTotalAmount,
+      paymentMethod,
+      amountPaid: payment.amountPaid,
+      changeAmount: finalChangeAmount,
+      pointsUsed: Number(pointsUsed || 0),
+      pointsEarned: Math.floor(finalTotalAmount / 10000),
+      notes,
+      createdBy: req.user._id,
+    };
+
+    const pointsEarned = salePayload.pointsEarned;
+
+    const updateCustomerData = (incTotal) => {
+      const updates = { 
+        $inc: { 
+          totalSpent: incTotal, 
+          points: pointsEarned - Number(pointsUsed || 0) 
+        } 
+      };
+      return updates;
+    };
+
+    const updateMemberTier = async (customerId, session) => {
+      const c = await Customer.findById(customerId);
+      if (c) {
+        let newTier = "Thường";
+        if (c.totalSpent >= 50000000) newTier = "Kim cương";
+        else if (c.totalSpent >= 20000000) newTier = "Vàng";
+        else if (c.totalSpent >= 5000000) newTier = "Bạc";
+        c.memberTier = newTier;
+        if (session) await c.save({ session });
+        else await c.save();
+      }
+    };
+
+    const result = await executeTransaction(
+      async (session) => {
+        const sale = await Sale.create([salePayload], { session });
+        for (const item of processedItems) {
+          await deductMedicineStockFEFO(item.medicine, item.quantity, session);
+        }
+        if (customer) {
+          await Customer.findByIdAndUpdate(customer, updateCustomerData(finalTotalAmount), { session });
+          await updateMemberTier(customer, session);
+        }
+        return sale[0];
+      },
+      async () => {
+        const sale = await Sale.create(salePayload);
+        for (const item of processedItems) {
+          await deductMedicineStockFEFO(item.medicine, item.quantity);
+        }
+        if (customer) {
+          await Customer.findByIdAndUpdate(customer, updateCustomerData(finalTotalAmount));
+          await updateMemberTier(customer);
+        }
+        return sale;
+      }
+    );
+
+    await createAuditLog({
+      req,
+      action: "create",
+      module: "sale",
+      target: result.code,
+      description: `Tạo hóa đơn bán hàng ${result.code}`,
+    });
+
+    return res.status(201).json(result);
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};
+
+// @PUT /api/sales/:id/cancel - Hủy hóa đơn
+export const cancelSale = async (req, res) => {
+  try {
+    const sale = await Sale.findById(req.params.id);
+    if (!sale) {
+      return res.status(404).json({ message: "Không tìm thấy hóa đơn" });
+    }
+    if (sale.status !== "completed") {
+      return res.status(400).json({ message: "Chỉ có thể hủy hóa đơn đã hoàn thành" });
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      session.startTransaction();
+
+      sale.status = "cancelled";
+      await sale.save({ session });
+
+      // Hoàn kho
+      for (const item of sale.items) {
+        await returnMedicineStock(item.medicine, item.quantity, session);
+      }
+
+      // Trừ tổng chi tiêu khách hàng và hoàn điểm
+      if (sale.customer) {
+        // Hóa đơn bị hủy: Trừ totalSpent, hoàn lại điểm đã dùng (cộng) và thu hồi điểm đã cộng (trừ)
+        const pointsToRestore = (sale.pointsUsed || 0) - (sale.pointsEarned || Math.floor(sale.totalAmount / 10000));
+        await Customer.findByIdAndUpdate(
+          sale.customer, 
+          { $inc: { 
+            totalSpent: -sale.totalAmount,
+            points: pointsToRestore
+          } },
+          { session }
+        );
+      }
+
+      await session.commitTransaction();
+      session.endSession();
+      return res.json({ message: "Hóa đơn đã được hủy" });
+    } catch (txError) {
+      await session.abortTransaction();
+      session.endSession();
+
+      const isTxNotSupported = txError.message?.includes("Transaction") || txError.codeName === "TransactionOutcomeUnknown" || txError.message?.includes("replica set") || txError.message?.includes("retryable writes");
+      if (isTxNotSupported) {
+        // Fallback
+        sale.status = "cancelled";
+        await sale.save();
+
+        // Hoàn kho
+        for (const item of sale.items) {
+          await returnMedicineStock(item.medicine, item.quantity);
+        }
+
+        // Trừ tổng chi tiêu khách hàng và hoàn điểm
+        if (sale.customer) {
+          const pointsToRestore = (sale.pointsUsed || 0) - (sale.pointsEarned || Math.floor(sale.totalAmount / 10000));
+          await Customer.findByIdAndUpdate(sale.customer, {
+            $inc: { 
+              totalSpent: -sale.totalAmount,
+              points: pointsToRestore 
+            },
+          });
+        }
+
+        return res.json({ message: "Hóa đơn đã được hủy" });
+      }
+
+      throw txError;
+    }
+  } catch (error) {
+    return sendErrorResponse(res, error);
+  }
+};

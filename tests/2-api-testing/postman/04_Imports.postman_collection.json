@@ -1,0 +1,282 @@
+{
+  "info": {
+    "_postman_id": "4f0d2e1h-3g2f-7f0d-bh4e-5g6h8c9d0e1f",
+    "name": "04_Imports - Group5 Pharmacy",
+    "description": "Đơn Nhập Kho & Quản Lý Công Nợ NCC",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC 3.1 - GET Import Suggestions (Smart PO)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/imports/suggest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports",
+            "suggest"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.2 - CREATE Import Order (Full Payment)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"IMP_TEST_001\",\n    \"supplier\": \"supp_001\",\n    \"items\": [\n        {\n            \"medicineId\": \"med_001\",\n            \"quantity\": 100,\n            \"importPrice\": 2000,\n            \"batchNumber\": \"LOT_IMP_001\",\n            \"expiryDate\": \"2028-12-31\"\n        },\n        {\n            \"medicineId\": \"med_002\",\n            \"quantity\": 50,\n            \"importPrice\": 3500,\n            \"batchNumber\": \"LOT_IMP_002\",\n            \"expiryDate\": \"2028-06-30\"\n        }\n    ],\n    \"totalAmount\": 375000,\n    \"paymentStatus\": \"paid\",\n    \"paymentMethod\": \"cash\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/imports",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.3 - CREATE Import Order (Partial Payment - Ghi Nợ NCC)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"IMP_TEST_002\",\n    \"supplier\": \"supp_001\",\n    \"items\": [\n        {\n            \"medicineId\": \"med_001\",\n            \"quantity\": 200,\n            \"importPrice\": 2000,\n            \"batchNumber\": \"LOT_IMP_003\",\n            \"expiryDate\": \"2028-12-31\"\n        }\n    ],\n    \"totalAmount\": 400000,\n    \"paymentStatus\": \"partial\",\n    \"amountPaid\": 200000,\n    \"amountDue\": 200000,\n    \"paymentDueDate\": \"2026-06-21\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/imports",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.4 - GET All Imports",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/imports?page=1&limit=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.5 - GET Import Detail",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/imports/imp_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports",
+            "imp_001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.6 - PAY Import Debt (Thanh Toán Nợ NCC)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"importId\": \"imp_001\",\n    \"amount\": 200000,\n    \"paymentMethod\": \"bank_transfer\",\n    \"referenceNumber\": \"TRF_2026_05_21_001\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/imports/pay-debt",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports",
+            "pay-debt"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.7 - Filter Imports by Supplier",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/imports?supplier=supp_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports"
+          ],
+          "query": [
+            {
+              "key": "supplier",
+              "value": "supp_001"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 3.8 - Filter Imports by Date Range",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/imports?startDate=2026-05-01&endDate=2026-05-31",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "imports"
+          ],
+          "query": [
+            {
+              "key": "startDate",
+              "value": "2026-05-01"
+            },
+            {
+              "key": "endDate",
+              "value": "2026-05-31"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

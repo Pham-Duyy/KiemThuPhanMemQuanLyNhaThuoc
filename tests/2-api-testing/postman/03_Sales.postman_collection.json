@@ -1,0 +1,347 @@
+{
+  "info": {
+    "_postman_id": "3e9c0d1g-2f1e-6e9c-ag3d-4f5g7b8c9d0e",
+    "name": "03_Sales - Group5 Pharmacy",
+    "description": "POS / Bán Hàng & Tích Điểm",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC 4.1 - CREATE Sale (POS)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"customer\": {\n        \"customerId\": \"cust_001\"\n    },\n    \"items\": [\n        {\n            \"medicineId\": \"med_001\",\n            \"quantity\": 2,\n            \"sellPrice\": 5000\n        },\n        {\n            \"medicineId\": \"med_002\",\n            \"quantity\": 1,\n            \"sellPrice\": 8000\n        }\n    ],\n    \"totalAmount\": 18000,\n    \"discount\": 0,\n    \"paymentMethod\": \"cash\",\n    \"notes\": \"Test sale for TC 4.1\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.2 - GET All Sales",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/sales?page=1&limit=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.3 - GET Sale Detail",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/sales/sale_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales",
+            "sale_001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.4 - GET Public Invoice (E-Invoice)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/sales/public/sale_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales",
+            "public",
+            "sale_001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.5 - CREATE Sale with Credit (Ghi Nợ)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"customer\": {\n        \"customerId\": \"cust_001\"\n    },\n    \"items\": [\n        {\n            \"medicineId\": \"med_001\",\n            \"quantity\": 5,\n            \"sellPrice\": 5000\n        }\n    ],\n    \"totalAmount\": 25000,\n    \"discount\": 0,\n    \"paymentMethod\": \"credit\",\n    \"notes\": \"Ghi nợ khách hàng\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.6 - CANCEL Sale",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"reason\": \"Customer returned goods\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales/sale_001/cancel",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales",
+            "sale_001",
+            "cancel"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.7 - AI Check Drug Interactions",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"medicines\": [\"Paracetamol\", \"Ibuprofen\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/ai/check-interactions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "ai",
+            "check-interactions"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.8 - Filter Sales by Payment Method",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/sales?paymentMethod=cash",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales"
+          ],
+          "query": [
+            {
+              "key": "paymentMethod",
+              "value": "cash"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.9 - GET Sales by Date Range",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/sales?startDate=2026-05-01&endDate=2026-05-31",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales"
+          ],
+          "query": [
+            {
+              "key": "startDate",
+              "value": "2026-05-01"
+            },
+            {
+              "key": "endDate",
+              "value": "2026-05-31"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 4.10 - CREATE Sale with Loyalty Points Redemption",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"customer\": {\n        \"customerId\": \"cust_001\"\n    },\n    \"items\": [\n        {\n            \"medicineId\": \"med_001\",\n            \"quantity\": 10,\n            \"sellPrice\": 5000\n        }\n    ],\n    \"totalAmount\": 50000,\n    \"discount\": 0,\n    \"pointsUsed\": 50,\n    \"paymentMethod\": \"cash\",\n    \"notes\": \"Using 50 loyalty points\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/sales",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "sales"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

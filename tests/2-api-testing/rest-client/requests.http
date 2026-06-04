@@ -1,0 +1,529 @@
+###############################################################################
+# GROUP5 PHARMACY GPP MANAGER - API TESTING WITH REST CLIENT
+# ✅ Backend running on: http://localhost:5001/api
+# 📝 Use REST Client extension (VS Code) to test
+# 💡 Hover over a request and click "Send Request" or use Ctrl+Alt+L
+###############################################################################
+
+@baseUrl = http://localhost:5001/api
+@token = 
+
+###############################################################################
+# 🔐 PHẦN 1: AUTHENTICATION (Xác thực)
+###############################################################################
+
+### 1.1 - LOGIN - Đăng Nhập & Lấy Token
+# After this request, copy the token value and set @token variable above
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "123456"
+}
+
+### 1.2 - GET CURRENT USER - Kiểm tra token & lấy user info
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 💊 PHẦN 2: MEDICINES (Quản lý Thuốc)
+###############################################################################
+
+### 2.1 - GET ALL MEDICINES - Danh sách tất cả thuốc
+GET {{baseUrl}}/medicines?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 2.1a - GET MEDICINES with search filter
+GET {{baseUrl}}/medicines?search=Aspirin
+Authorization: Bearer {{token}}
+
+### 2.1b - GET MEDICINES with low stock filter
+GET {{baseUrl}}/medicines?lowStock=true
+Authorization: Bearer {{token}}
+
+### 2.2 - GET MEDICINE DETAIL - Chi tiết thuốc
+# Replace 'med_001' with actual medicine ID from GET request above
+GET {{baseUrl}}/medicines/med_001
+Authorization: Bearer {{token}}
+
+### 2.3 - CREATE MEDICINE - Tạo loại thuốc mới (Admin)
+POST {{baseUrl}}/medicines
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "code": "TEST_MED_001",
+    "name": "Test Medicine 500mg",
+    "category": "cat_001",
+    "unit": "unit_001",
+    "sellPrice": 10000,
+    "importPrice": 5000,
+    "minStock": 10,
+    "maxStock": 500,
+    "description": "This is a test medicine",
+    "location": {
+        "zone": "A",
+        "shelf": "1",
+        "row": "1",
+        "column": "1"
+    },
+    "batches": [
+        {
+            "batchNumber": "LOT_TEST_001",
+            "quantity": 100,
+            "expiryDate": "2028-12-31",
+            "importPrice": 5000
+        }
+    ]
+}
+
+### 2.4 - UPDATE MEDICINE - Cập nhật thông tin thuốc (Admin)
+PUT {{baseUrl}}/medicines/med_001
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "name": "Aspirin 500mg - Updated",
+    "sellPrice": 5500,
+    "minStock": 15
+}
+
+### 2.5 - DELETE MEDICINE - Xóa thuốc (Admin, Soft Delete)
+DELETE {{baseUrl}}/medicines/med_001
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 👥 PHẦN 3: CUSTOMERS (Quản lý Khách Hàng)
+###############################################################################
+
+### 3.1 - GET ALL CUSTOMERS - Danh sách khách hàng
+GET {{baseUrl}}/customers?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 3.2 - CREATE CUSTOMER - Tạo khách hàng mới
+POST {{baseUrl}}/customers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "name": "Test Customer",
+    "phone": "0912345678",
+    "email": "testcustomer@example.com",
+    "address": "123 Test Street, HCM",
+    "allergies": [],
+    "chronicDiseases": ["Diabetes"]
+}
+
+### 3.3 - GET CUSTOMER DETAIL - Chi tiết khách hàng
+GET {{baseUrl}}/customers/cust_001
+Authorization: Bearer {{token}}
+
+### 3.4 - GET CUSTOMER HISTORY - Lịch mua hàng & loyalty points
+GET {{baseUrl}}/customers/cust_001/history
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 🛒 PHẦN 4: SALES / POS (Bán Hàng - Tạo Hóa Đơn)
+###############################################################################
+
+### 4.1 - CREATE SALE - Tạo hóa đơn bán hàng (CHÍNH)
+# ⭐ This is the MOST IMPORTANT test - sells medicines, deducts stock (FEFO)
+POST {{baseUrl}}/sales
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "customer": {
+        "customerId": "cust_001"
+    },
+    "items": [
+        {
+            "medicineId": "med_001",
+            "quantity": 2,
+            "sellPrice": 5000
+        },
+        {
+            "medicineId": "med_002",
+            "quantity": 1,
+            "sellPrice": 8000
+        }
+    ],
+    "totalAmount": 18000,
+    "discount": 0,
+    "paymentMethod": "cash",
+    "notes": "Test POS sale"
+}
+
+### 4.2 - GET ALL SALES - Danh sách hóa đơn bán hàng
+GET {{baseUrl}}/sales?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 4.3 - GET SALE DETAIL - Chi tiết hóa đơn
+GET {{baseUrl}}/sales/sale_001
+Authorization: Bearer {{token}}
+
+### 4.4 - GET PUBLIC INVOICE (E-Invoice) - Hóa đơn công khai (No auth needed)
+GET {{baseUrl}}/sales/public/sale_001
+
+### 4.5 - CANCEL SALE - Hủy hóa đơn (Admin)
+PUT {{baseUrl}}/sales/sale_001/cancel
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "reason": "Customer changed mind"
+}
+
+###############################################################################
+# 📥 PHẦN 5: IMPORTS (Đơn Nhập Kho)
+###############################################################################
+
+### 5.1 - CREATE IMPORT - Tạo đơn nhập hàng từ nhà cung cấp
+POST {{baseUrl}}/imports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "code": "IMP_TEST_001",
+    "supplier": "supp_001",
+    "items": [
+        {
+            "medicineId": "med_001",
+            "quantity": 50,
+            "importPrice": 2000,
+            "batchNumber": "LOT_IMPORT_001",
+            "expiryDate": "2028-12-31"
+        },
+        {
+            "medicineId": "med_002",
+            "quantity": 30,
+            "importPrice": 3500,
+            "batchNumber": "LOT_IMPORT_002",
+            "expiryDate": "2028-06-30"
+        }
+    ],
+    "totalAmount": 205000,
+    "paymentStatus": "unpaid",
+    "paymentDueDate": "2026-06-20"
+}
+
+### 5.2 - GET ALL IMPORTS - Danh sách đơn nhập
+GET {{baseUrl}}/imports?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 5.3 - GET IMPORT DETAIL - Chi tiết đơn nhập
+GET {{baseUrl}}/imports/imp_001
+Authorization: Bearer {{token}}
+
+### 5.4 - GET IMPORT SUGGESTIONS - Auto-suggest replenishment
+GET {{baseUrl}}/imports/suggest
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 📋 PHẦN 6: PRESCRIPTIONS (Đơn Thuốc / OCR)
+###############################################################################
+
+### 6.1 - CREATE PRESCRIPTION - Tạo đơn thuốc (có OCR)
+POST {{baseUrl}}/prescriptions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "patientName": "Bệnh nhân Test",
+    "patientPhone": "0987654321",
+    "doctorName": "Dr. Nguyễn Văn A",
+    "items": [
+        {
+            "medicineName": "Aspirin 500mg",
+            "dosage": "500mg",
+            "quantity": 10,
+            "frequency": "3 lần/ngày"
+        }
+    ],
+    "notes": "Uống sau ăn"
+}
+
+### 6.2 - GET ALL PRESCRIPTIONS - Danh sách đơn thuốc
+GET {{baseUrl}}/prescriptions?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 6.3 - GET PRESCRIPTION DETAIL
+GET {{baseUrl}}/prescriptions/pres_001
+Authorization: Bearer {{token}}
+
+### 6.4 - UPDATE PRESCRIPTION STATUS - Cập nhật trạng thái (pending→dispensed)
+PUT {{baseUrl}}/prescriptions/pres_001
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "status": "dispensed"
+}
+
+###############################################################################
+# 📊 PHẦN 7: REPORTS (Báo Cáo & Dashboard)
+###############################################################################
+
+### 7.1 - GET DASHBOARD KPIs - Dashboard tổng quan
+GET {{baseUrl}}/reports/dashboard?period=month&month=5&year=2026
+Authorization: Bearer {{token}}
+
+### 7.2 - GET REVENUE REPORT - Báo cáo doanh thu
+GET {{baseUrl}}/reports/revenue?startDate=2026-05-01&endDate=2026-05-31
+Authorization: Bearer {{token}}
+
+### 7.3 - GET TOP MEDICINES - Top 10 bán chạy
+GET {{baseUrl}}/reports/top-medicines
+Authorization: Bearer {{token}}
+
+### 7.4 - GET INVENTORY REPORT - Báo cáo tồn kho
+GET {{baseUrl}}/reports/inventory
+Authorization: Bearer {{token}}
+
+### 7.5 - GET DEBT REPORT - Báo cáo nợ khách hàng
+GET {{baseUrl}}/reports/debt
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 🔍 PHẦN 8: ACTIVITY LOGS (Audit Trail)
+###############################################################################
+
+### 8.1 - GET ACTIVITY LOGS - Lịch sử hoạt động của hệ thống
+GET {{baseUrl}}/activity-logs?page=1&limit=20
+Authorization: Bearer {{token}}
+
+### 8.1a - GET ACTIVITY LOGS by module (sale)
+GET {{baseUrl}}/activity-logs?module=sale&page=1&limit=20
+Authorization: Bearer {{token}}
+
+### 8.1b - GET ACTIVITY LOGS by action (create)
+GET {{baseUrl}}/activity-logs?action=create&page=1&limit=20
+Authorization: Bearer {{token}}
+
+### 8.1c - GET ACTIVITY LOGS by user
+GET {{baseUrl}}/activity-logs?userId=user_001&page=1&limit=20
+Authorization: Bearer {{token}}
+
+### 8.1d - GET ACTIVITY LOGS by date range
+GET {{baseUrl}}/activity-logs?startDate=2026-05-01&endDate=2026-05-31
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 💰 PHẦN 9: CASHBOOK (Ghi Chép Tài Chính)
+###############################################################################
+
+### 9.1 - GET ALL CASHBOOK TRANSACTIONS - Danh sách giao dịch
+GET {{baseUrl}}/cashbook?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 9.2 - CREATE CASHBOOK TRANSACTION - Ghi thu/chi
+POST {{baseUrl}}/cashbook
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "type": "thu",
+    "category": "bán hàng",
+    "amount": 5000000,
+    "paymentMethod": "chuyển khoản",
+    "description": "Doanh thu bán hàng ngày hôm nay",
+    "transactionDate": "2026-05-21",
+    "relatedTo": "sale_001"
+}
+
+### 9.3 - CREATE EXPENSE - Ghi chi
+POST {{baseUrl}}/cashbook
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "type": "chi",
+    "category": "lương nhân viên",
+    "amount": 15000000,
+    "paymentMethod": "chuyển khoản",
+    "description": "Trả lương tháng 5",
+    "transactionDate": "2026-05-21"
+}
+
+###############################################################################
+# 👤 PHẦN 10: USERS (Quản lý Nhân Viên)
+###############################################################################
+
+### 10.1 - GET ALL USERS - Danh sách nhân viên
+GET {{baseUrl}}/users
+Authorization: Bearer {{token}}
+
+### 10.2 - GET USER DETAIL - Chi tiết nhân viên
+GET {{baseUrl}}/users/user_001
+Authorization: Bearer {{token}}
+
+### 10.3 - CREATE USER - Tạo tài khoản nhân viên (Admin)
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "username": "pharmacist_test",
+    "password": "123456",
+    "email": "pharmacist@pharmacy.com",
+    "name": "Pharmacist Test",
+    "role": "pharmacist",
+    "clockInPin": "1111",
+    "salaryConfig": {
+        "type": "hourly",
+        "hourlyRate": 50000
+    }
+}
+
+### 10.4 - UPDATE USER - Cập nhật thông tin nhân viên
+PUT {{baseUrl}}/users/user_001
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "name": "Updated Name",
+    "email": "newemail@pharmacy.com"
+}
+
+### 10.5 - CHANGE PASSWORD - Đổi mật khẩu
+PUT {{baseUrl}}/auth/change-password
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "oldPassword": "123456",
+    "newPassword": "new_password_123"
+}
+
+###############################################################################
+# 📅 PHẦN 11: SCHEDULE (Lịch Làm Việc)
+###############################################################################
+
+### 11.1 - GET SCHEDULE - Lịch làm việc
+GET {{baseUrl}}/schedule?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### 11.2 - CREATE SCHEDULE - Tạo ca làm việc
+POST {{baseUrl}}/schedule
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "date": "2026-05-22",
+    "staff": "user_001",
+    "shiftType": "morning",
+    "startTime": "08:00",
+    "endTime": "12:00"
+}
+
+###############################################################################
+# 🛍️ PHẦN 12: RETURNS (Hoàn Hàng)
+###############################################################################
+
+### 12.1 - GET ALL RETURNS - Danh sách hoàn hàng
+GET {{baseUrl}}/returns
+Authorization: Bearer {{token}}
+
+### 12.2 - CREATE RETURN - Tạo đơn hoàn hàng
+POST {{baseUrl}}/returns
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "sale": "sale_001",
+    "items": [
+        {
+            "medicineId": "med_001",
+            "quantity": 1,
+            "reason": "hỏng"
+        }
+    ],
+    "reason": "Product defective"
+}
+
+### 12.3 - UPDATE RETURN STATUS
+PUT {{baseUrl}}/returns/ret_001/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "status": "approved"
+}
+
+###############################################################################
+# ⚙️ PHẦN 13: CONFIG (Cấu Hình Hệ Thống)
+###############################################################################
+
+### 13.1 - GET CONFIG - Lấy cấu hình hệ thống
+GET {{baseUrl}}/config
+Authorization: Bearer {{token}}
+
+### 13.2 - UPDATE CONFIG - Cập nhật cấu hình
+PUT {{baseUrl}}/config
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "storeName": "Nhà Thuốc ABC",
+    "address": "123 Nguyễn Huệ, HCM",
+    "phone": "0123456789",
+    "email": "contact@pharmacy.com"
+}
+
+###############################################################################
+# ✅ QUICK TEST SCENARIO (Dùng cái này để test từ đầu)
+###############################################################################
+
+### SCENARIO 1: LOGIN & CHECK USER
+# 1. Run this first to get token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "123456"
+}
+
+### SCENARIO 2: After login, list medicines
+GET {{baseUrl}}/medicines?limit=5
+Authorization: Bearer {{token}}
+
+### SCENARIO 3: Create a POS sale
+POST {{baseUrl}}/sales
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "customer": {
+        "customerId": "cust_001"
+    },
+    "items": [
+        {
+            "medicineId": "med_001",
+            "quantity": 1,
+            "sellPrice": 5000
+        }
+    ],
+    "totalAmount": 5000,
+    "discount": 0,
+    "paymentMethod": "cash"
+}
+
+### SCENARIO 4: View dashboard (revenue, expenses, top products)
+GET {{baseUrl}}/reports/dashboard
+Authorization: Bearer {{token}}
+
+###############################################################################
+# 💡 HOW TO USE THIS FILE:
+# 
+# 1. Install "REST Client" extension in VS Code
+# 2. Open this file (requests.http)
+# 3. Update @token variable (copy from login response)
+# 4. Hover over any request and click "Send Request"
+# 5. Or press Ctrl+Alt+L (Windows) / Cmd+Alt+L (Mac)
+# 6. Response will show in right panel
+#
+# ⭐ IMPORTANT: Backend must be running on port 5001!
+#    cd d:\G5\Group5\backend && npm run dev
+###############################################################################

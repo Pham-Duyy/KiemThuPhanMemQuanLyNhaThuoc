@@ -1,0 +1,270 @@
+{
+  "info": {
+    "_postman_id": "2d8b9c0f-1e0d-5d8b-9f2c-3e4f6a7b8c9d",
+    "name": "02_Medicines - Group5 Pharmacy",
+    "description": "Quản lý Thuốc & Batch Tracking",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC 2.1 - GET All Medicines",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/medicines?page=1&limit=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.2 - CREATE Medicine",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"code\": \"TEST_MED_001\",\n    \"name\": \"Test Medicine 500mg\",\n    \"category\": \"cat_001\",\n    \"unit\": \"unit_001\",\n    \"sellPrice\": 10000,\n    \"importPrice\": 5000,\n    \"minStock\": 10,\n    \"maxStock\": 500,\n    \"description\": \"Test medicine for TC 2.2\",\n    \"location\": {\n        \"zone\": \"A\",\n        \"shelf\": \"1\",\n        \"row\": \"1\",\n        \"column\": \"1\"\n    },\n    \"batches\": [\n        {\n            \"batchNumber\": \"LOT_TEST_001\",\n            \"quantity\": 100,\n            \"expiryDate\": \"2028-12-31\",\n            \"importPrice\": 5000\n        }\n    ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/medicines",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.3 - GET Medicine Detail",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/medicines/med_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines",
+            "med_001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.4 - UPDATE Medicine",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Test Medicine 500mg - Updated\",\n    \"sellPrice\": 12000,\n    \"minStock\": 15\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/medicines/med_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines",
+            "med_001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.5 - DELETE Medicine (Soft Delete)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/medicines/med_001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines",
+            "med_001"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.6 - Filter Low Stock",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/medicines?lowStock=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines"
+          ],
+          "query": [
+            {
+              "key": "lowStock",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.7 - Search Medicine by Name",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/medicines?search=Aspirin",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines"
+          ],
+          "query": [
+            {
+              "key": "search",
+              "value": "Aspirin"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "TC 2.8 - Get Expiring Medicines",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/medicines/expiring",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "medicines",
+            "expiring"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
