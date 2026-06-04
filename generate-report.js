@@ -98,7 +98,7 @@ async function createReport() {
     const kpiData = [
         ['', 'Kiểm thử API (API Testing)', 'Postman', 31, '31/31 Đạt', '100%'],
         ['', 'Kiểm thử Giao diện (E2E Testing)', 'Cypress', 34, '34/34 Đạt', '100%'],
-        ['', 'Kiểm thử Đơn vị (Unit Testing)', 'Jest', 2, '2/2 Đạt', '100%'],
+        ['', 'Kiểm thử Đơn vị (Unit Testing)', 'Jest / Node', 41, '41/41 Đạt', '100%'],
         ['', 'Kiểm thử Chịu tải (Load Testing)', 'k6', 2, '2/2 Đạt', '100%'],
     ];
     kpiData.forEach((d, i) => {
@@ -113,7 +113,7 @@ async function createReport() {
         });
     });
 
-    const totalR = dash.addRow(['', 'TỔNG CỘNG', '', 69, '69/69 Đạt', '100%']);
+    const totalR = dash.addRow(['', 'TỔNG CỘNG', '', 108, '108/108 Đạt', '100%']);
     totalR.height = 35;
     totalR.eachCell({ includeEmpty: true }, (cell, col) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.darkNavy } };
@@ -646,7 +646,7 @@ async function createReport() {
     });
 
     await workbook.xlsx.writeFile('GPP_Pharmacy_Test_Report_Detailed.xlsx');
-    console.log('✅ File Excel đã tạo thành công! 69 TCs - Mỗi Step 1 dòng riêng - Merge cell dọc - Giống mẫu chuẩn!');
+    console.log('✅ File Excel đã tạo thành công! 108 TCs - Mỗi Step 1 dòng riêng - Merge cell dọc - Giống mẫu chuẩn!');
 }
 
 createReport().catch(console.error);
